@@ -4,7 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-homework4/database"
 	"go-homework4/models"
-	"net/http"
+	"go-homework4/pkg/errno"
+	"go-homework4/pkg/response"
 	"strconv"
 )
 
@@ -16,37 +17,25 @@ import (
 func CreateComment(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code": 10001,
-			"msg":  "Unauthorized",
-		})
+		c.Error(errno.ErrUnauthorized)
 		return
 	}
 
 	postId, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code": 40001,
-			"msg":  "Invalid post id",
-		})
+		c.Error(errno.ErrInvalidParameter)
 		return
 	}
 
 	var comment models.Comment
 	if err := c.ShouldBindJSON(&comment); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 40001,
-			"msg":  "Bad request parameters",
-		})
+		c.Error(errno.ErrInvalidParameter)
 		return
 	}
 
 	var post models.Post
 	if err := database.DB.First(&post, postId).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50001,
-			"msg":  "Failed to found post",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
@@ -54,18 +43,11 @@ func CreateComment(c *gin.Context) {
 	comment.PostId = uint(postId)
 
 	if err := database.DB.Create(&comment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50001,
-			"msg":  "Failed to create comment",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "success",
-		"data": comment,
-	})
+	response.Success(c, comment)
 
 }
 
@@ -82,33 +64,23 @@ func FindCommentByPostId(c *gin.Context) {
 
 	var total int64
 	if err := database.DB.Model(&models.Comment{}).Count(&total).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 40001,
-			"msg":  "Failed to count comments",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
 	postId := c.Param("id")
 	var comments []models.Comment
 	if err := database.DB.Preload("USER.POST").Where("post_id=?", postId).Order("create_at DESC").Offset(offset).Limit(size).Find(&comments).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50001,
-			"msg":  "Failed to find comments",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "success",
-		"data": gin.H{
-			"list": comments,
-			"pagination": gin.H{
-				"page":         page,
-				"size":         size,
-				"total":        total,
-			},
+	response.Success(c, gin.H{
+		"list": comments,
+		"pagination": gin.H{
+			"page":  page,
+			"size":  size,
+			"total": total,
 		},
 	})
 

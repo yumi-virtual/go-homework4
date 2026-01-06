@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"go-homework4/config"
+	"go-homework4/logger"
 	"go-homework4/models"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -25,12 +26,12 @@ func InitDB() error {
 
 	DB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("failed to connect mysql ", err)
+		logger.Error.Printf("failed to connect mysql ", err)
 		return err
 	}
 
 	if err := DB.AutoMigrate(&models.User{}, &models.Post{}, &models.Comment{}); err != nil {
-		log.Fatal("Failed to migrate table ", err)
+		logger.Error.Printf("Failed to migrate table ", err)
 		return err
 	}
 	log.Println("Database connected successfully")

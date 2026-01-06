@@ -4,7 +4,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go-homework4/database"
 	"go-homework4/models"
-	"net/http"
+	"go-homework4/pkg/errno"
+	"go-homework4/pkg/response"
 	"strconv"
 )
 
@@ -22,19 +23,13 @@ func CreatePost(c *gin.Context) {
 	// 从jwt中拿userId
 	userId, exists := c.Get("userId")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code": 10001,
-			"msg":  "Unauthorized",
-		})
+		c.Error(errno.ErrUnauthorized)
 		return
 	}
 
 	var req CreatePostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code": 40001,
-			"msg":  "Bad request parameters",
-		})
+		c.Error(errno.ErrInvalidParameter)
 	}
 
 	post := models.Post{
@@ -43,26 +38,18 @@ func CreatePost(c *gin.Context) {
 		UserId:  userId.(uint),
 	}
 	if err := database.DB.Model(&post).Where("title=?", post.Title).First(&post).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 40002,
-			"msg":  "Post already exists ",
-		})
+		c.Error(errno.DB(err))
+		return
 	}
 
-	if err := database.DB.Create(&post); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50001,
-			"msg":  "Failed to create post",
-		})
+	if err := database.DB.Create(&post).Error; err != nil {
+		c.Error(errno.DB(err))
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "create post successfully!",
-		"data": gin.H{
-			"title":   post.Title,
-			"content": post.Content,
-		},
+	response.Success(c, gin.H{
+		"title":   post.Title,
+		"content": post.Content,
 	})
 }
 
@@ -79,31 +66,22 @@ func FindPost(c *gin.Context) {
 
 	var total int64
 	if err := database.DB.Model(&models.Post{}).Count(&total).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50001,
-			"msg":  "Failed to count posts",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
 	var posts []models.Post
 	if err := database.DB.Preload("User").Order("create_at DESC ").Offset(offser).Limit(size).Find(&posts).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50002,
-			"msg":  "Failed to get post list",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg": gin.H{
-			"list": posts,
-			"pagination": gin.H{
-				"page":         page,
-				"size":         size,
-				"total":        total,
-			},
+	response.Success(c, gin.H{
+		"list": posts,
+		"pagination": gin.H{
+			"page":  page,
+			"size":  size,
+			"total": total,
 		},
 	})
 
@@ -113,62 +91,41 @@ func FirstPost(c *gin.Context) {
 	postId := c.Param("id")
 	var post models.Post
 	if err := database.DB.Model(&post).Preload("User").First(&post, postId).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50001,
-			"msg":  "Failed to get post",
-		})
+		c.Error(errno.DB(err))
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "success",
-		"data": post,
-	})
+	response.Success(c, post)
 
 }
 
 func UpdatePost(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code": 10001,
-			"msg":  "Unauthorized",
-		})
+		c.Error(errno.ErrUnauthorized)
 		return
 	}
 
 	postId, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code": 50001,
-			"msg":  "Invalid post id",
-		})
+		c.Error(errno.ErrInvalidParameter)
 		return
 	}
 
 	var post models.Post
 	if err := database.DB.First(&post, postId).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code": 40001,
-			"msg":  "Post not found ",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
 	if userId != post.UserId {
-		c.JSON(http.StatusForbidden, gin.H{
-			"code": 50005,
-			"msg":  "You are not the author of the post",
-		})
+		c.Error(errno.ErrStatusForbidden)
 		return
 	}
 
 	var req UpdatePostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code": 50001,
-			"msg":  "Invalid request parameters",
-		})
+		c.Error(errno.ErrInvalidParameter)
 		return
 	}
 
@@ -176,69 +133,42 @@ func UpdatePost(c *gin.Context) {
 	post.Content = req.Content
 
 	if err := database.DB.Save(&post).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50003,
-			"msg":  "Failed to update post",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "success",
-		"data": post,
-	})
-
+	response.Success(c, post)
 }
 
 func DeletePost(c *gin.Context) {
 	userId, exists := c.Get("userId")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"code": 10001,
-			"msg":  "Unauthorized",
-		})
+		c.Error(errno.ErrUnauthorized)
 		return
 	}
 
 	postId, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code": 50001,
-			"msg":  "Invalid post id",
-		})
+		c.Error(errno.ErrInvalidParameter)
 		return
 	}
 
 	var post models.Post
 	if err := database.DB.First(&post, postId).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50005,
-			"msg":  "Failed to get post",
-		})
+		c.Error(errno.ErrPostNotFound)
 		return
 	}
 
 	if userId != post.UserId {
-		c.JSON(http.StatusForbidden, gin.H{
-			"code": 50005,
-			"msg":  "You are not the author of the post",
-		})
+		c.Error(errno.ErrStatusForbidden)
 		return
 	}
 
 	if err := database.DB.Delete(&post).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": 50005,
-			"msg":  "Failed to delete post",
-		})
+		c.Error(errno.DB(err))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "success",
-		"data": post,
-	})
+	response.Success(c, post)
 
 }
