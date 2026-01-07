@@ -1,14 +1,17 @@
 # Go Homework 03
 
 ## 使用说明
-go get -u gorm.io/gorm
-go get -u gorm.io/driver/mysql
 
 go get github.com/gin-gonic/gin
+
 go get gorm.io/gorm
+
 go get gorm.io/driver/mysql
+
 go get github.com/golang-jwt/jwt/v4
+
 go get golang.org/x/crypto/bcrypt
+
 go get github.com/spf13/viper
 
 ## 题目列表
@@ -43,113 +46,6 @@ go get github.com/spf13/viper
    代码示例参考
    数据库连接与模型定义
 
-package main
-
-import (
-"gorm.io/driver/sqlite"
-"gorm.io/gorm"
-)
-
-type User struct {
-gorm.Model
-Username string `gorm:"unique;not null"`
-Password string `gorm:"not null"`
-Email    string `gorm:"unique;not null"`
-}
-
-type Post struct {
-gorm.Model
-Title   string `gorm:"not null"`
-Content string `gorm:"not null"`
-UserID  uint
-User    User
-}
-
-type Comment struct {
-gorm.Model
-Content string `gorm:"not null"`
-UserID  uint
-User    User
-PostID  uint
-Post    Post
-}
-
-func main() {
-db, err := gorm.Open(sqlite.Open("blog.db"), &gorm.Config{})
-if err != nil {
-panic("failed to connect database")
-}
-
-    // 自动迁移模型
-    db.AutoMigrate(&User{}, &Post{}, &Comment{})
-}
-用户注册与登录示例
-
-package main
-
-import (
-"github.com/dgrijalva/jwt-go"
-"github.com/gin-gonic/gin"
-"golang.org/x/crypto/bcrypt"
-"net/http"
-"time"
-)
-
-func Register(c *gin.Context) {
-var user User
-if err := c.ShouldBindJSON(&user); err != nil {
-c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-return
-}
-// 加密密码
-hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-if err != nil {
-c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-return
-}
-user.Password = string(hashedPassword)
-
-    if err := db.Create(&user).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-        return
-    }
-
-    c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
-}
-
-func Login(c *gin.Context) {
-var user User
-if err := c.ShouldBindJSON(&user); err != nil {
-c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-return
-}
-
-    var storedUser User
-    if err := db.Where("username = ?", user.Username).First(&storedUser).Error; err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
-        return
-    }
-
-    // 验证密码
-    if err := bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password)); err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
-        return
-    }
-
-    // 生成 JWT
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-        "id":       storedUser.ID,
-        "username": storedUser.Username,
-        "exp":      time.Now().Add(time.Hour * 24).Unix(),
-    })
-
-    tokenString, err := token.SignedString([]byte("your_secret_key"))
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-        return
-    }
-    // 剩下的逻辑...
-}
 提交要求
 提交完整的项目代码，包括必要的配置文件和依赖管理文件。
 提供项目的 README 文件，说明项目的运行环境、依赖安装步骤和启动方式。
