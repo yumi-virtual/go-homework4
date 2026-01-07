@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+type LoginUser struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
 func Register(c *gin.Context) {
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
@@ -47,14 +52,14 @@ func Register(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
-	var user models.User
+	var user LoginUser
 	if err := c.ShouldBindJSON(&user); err != nil {
-		c.Error(errno.ErrInvalidParameter)
+		c.Error(errno.InvalidParameter(err))
 		return
 	}
 
 	var loginUser models.User
-	if err := database.DB.Model(&user).Where("username=?", user.Username).First(&loginUser).Error; err != nil {
+	if err := database.DB.Model(&models.User{}).Where("username=?", user.Username).First(&loginUser).Error; err != nil {
 		c.Error(errno.DB(err))
 		return
 	}
@@ -65,20 +70,21 @@ func Login(c *gin.Context) {
 	}
 
 	config := config.AppConfig
-	sign := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
-		"id":       loginUser.ID,
+	sign := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"userId":   loginUser.ID,
 		"username": loginUser.Username,
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	})
 
 	token, err := sign.SignedString([]byte(config.JWTSecret))
 	if err != nil {
-		c.Error(errno.ErrLogin)
+		c.Error(errno.Internal(err))
+		return
 	}
 
 	response.Success(c, gin.H{
 		"token":  token,
-		"userId": user.ID,
+		"userId": loginUser.ID,
 		"expire": time.Now().Add(time.Hour * 24).Format(time.RFC3339),
 	})
 

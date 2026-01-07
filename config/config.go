@@ -2,7 +2,7 @@ package config
 
 import (
 	"github.com/spf13/viper"
-	"log"
+	"go-homework4/logger"
 )
 
 type Config struct {
@@ -30,13 +30,13 @@ func LoadConfig() error {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Println("No config file found")
+		logger.Error.Println("No config file found")
 		return err
 	}
-	if err:=viper.Unmarshal(&AppConfig);err != nil {
-		log.Fatal("Failed to parse configuration ",err)
+	if err := viper.Unmarshal(&AppConfig); err != nil {
+		logger.Error.Println("Failed to parse configuration ", err)
 		return err
 	}
-	log.Println("config load success!")
+	logger.Info.Println("config load success!")
 	return nil
 }

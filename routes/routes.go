@@ -41,6 +41,7 @@ func SetupRouter() *gin.Engine {
 		// 评论
 		protected.POST("/posts/:id/comments", controllers.CreateComment)
 		protected.GET("/posts/:id/comments", controllers.FindCommentByPostId)
+		protected.GET("/posts/:id/v2/comments", controllers.FindCommentByPostIdV2)
 
 	}
 

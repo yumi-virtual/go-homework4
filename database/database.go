@@ -24,11 +24,14 @@ func InitDB() error {
 		config.DatabaseName,
 	)
 
-	DB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		logger.Error.Printf("failed to connect mysql ", err)
 		return err
 	}
+
+	// 赋值给全局变量
+	DB = db
 
 	if err := DB.AutoMigrate(&models.User{}, &models.Post{}, &models.Comment{}); err != nil {
 		logger.Error.Printf("Failed to migrate table ", err)

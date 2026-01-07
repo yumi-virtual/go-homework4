@@ -21,8 +21,14 @@ type UpdatePostRequest struct {
 
 func CreatePost(c *gin.Context) {
 	// 从jwt中拿userId
-	userId, exists := c.Get("userId")
+	uid, exists := c.Get("userId")
 	if !exists {
+		c.Error(errno.ErrUnauthorized)
+		return
+	}
+
+	userId, ok := uid.(float64)
+	if !ok {
 		c.Error(errno.ErrUnauthorized)
 		return
 	}
@@ -35,10 +41,10 @@ func CreatePost(c *gin.Context) {
 	post := models.Post{
 		Title:   req.Title,
 		Content: req.Content,
-		UserId:  userId.(uint),
+		UserId:  uint(userId),
 	}
-	if err := database.DB.Model(&post).Where("title=?", post.Title).First(&post).Error; err != nil {
-		c.Error(errno.DB(err))
+	if err := database.DB.Where("title=?", post.Title).First(&post).Error; err == nil {
+		c.Error(errno.ErrPostExists)
 		return
 	}
 
@@ -71,7 +77,7 @@ func FindPost(c *gin.Context) {
 	}
 
 	var posts []models.Post
-	if err := database.DB.Preload("User").Order("create_at DESC ").Offset(offser).Limit(size).Find(&posts).Error; err != nil {
+	if err := database.DB.Preload("User").Order("created_at DESC ").Offset(offser).Limit(size).Find(&posts).Error; err != nil {
 		c.Error(errno.DB(err))
 		return
 	}
@@ -100,8 +106,14 @@ func FirstPost(c *gin.Context) {
 }
 
 func UpdatePost(c *gin.Context) {
-	userId, exists := c.Get("userId")
+	uid, exists := c.Get("userId")
 	if !exists {
+		c.Error(errno.ErrUnauthorized)
+		return
+	}
+
+	userId, ok := uid.(float64)
+	if !ok {
 		c.Error(errno.ErrUnauthorized)
 		return
 	}
@@ -118,7 +130,7 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
-	if userId != post.UserId {
+	if uint(userId) != post.UserId {
 		c.Error(errno.ErrStatusForbidden)
 		return
 	}
@@ -141,8 +153,14 @@ func UpdatePost(c *gin.Context) {
 }
 
 func DeletePost(c *gin.Context) {
-	userId, exists := c.Get("userId")
+	uid, exists := c.Get("userId")
 	if !exists {
+		c.Error(errno.ErrUnauthorized)
+		return
+	}
+
+	userId, ok := uid.(float64)
+	if !ok {
 		c.Error(errno.ErrUnauthorized)
 		return
 	}
@@ -159,7 +177,7 @@ func DeletePost(c *gin.Context) {
 		return
 	}
 
-	if userId != post.UserId {
+	if uint(userId) != post.UserId {
 		c.Error(errno.ErrStatusForbidden)
 		return
 	}

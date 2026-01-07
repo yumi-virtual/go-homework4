@@ -1,4 +1,4 @@
-package go_homework4
+package main
 
 import (
 	"fmt"
@@ -31,6 +31,6 @@ func main() {
 	router := routes.SetupRouter()
 
 	// 5、启动服务器
-	router.Run(":" + config.AppConfig.DatabasePort)
+	router.Run(":" + config.AppConfig.ServerPort)
 
 }
